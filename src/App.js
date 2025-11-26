@@ -11,6 +11,7 @@ import Login from "./Login";
 export default function App() {
   const canPlaySoundRef = useRef(false);
   const [users, setUsers] = useState({});
+  const [blocked, setBlocked] = useState(new Set()); // 👈 NEW: blocked IPs
   const [cardIp, setCardIp] = useState(null);
   const [infoIp, setInfoIp] = useState(null);
   const [highlightIp, setHighlightIp] = useState(null);
@@ -20,12 +21,102 @@ export default function App() {
   //const [canPlaySound, setCanPlaySound] = useState(false);
   const navigate = useNavigate();
 
+  // Helper to decide if we should ignore an IP entirely
+  const isBlocked = (ip) => blocked.has(ip);
+
+  // Central guard to skip any incoming user struct if blocked
+  const guardMerge = (u) => {
+    if (!u || !u.ip) return true;
+    return isBlocked(u.ip);
+  };
+
   // Playback helper
   const playNotification = (isUpdate) => {
     if (!canPlaySoundRef.current) return; // only after gesture
     const sound = isUpdate ? updateSound.current : newIpSound.current;
     if (sound) {
       sound.play().catch((err) => console.warn("Playback failed:", err));
+    }
+  };
+
+  // Fetch blocked list once after auth
+  const loadBlocked = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const res = await fetch(`${API_BASE}/api/blocked`, {
+      headers: { Authorization: "Bearer " + token },
+    });
+    if (!res.ok) {
+      console.warn("Failed to load blocked list:", res.status, res.statusText);
+      return;
+    }
+    const list = await res.json();
+    const s = new Set(Array.isArray(list) ? list : []);
+    setBlocked(s);
+
+    // Immediately strip any currently shown blocked users (if any)
+    setUsers((m) => {
+      const copy = { ...m };
+      for (const ip of s) {
+        delete copy[ip];
+      }
+      return copy;
+    });
+  };
+
+  // Block action exposed to UserTable
+  const handleBlockIp = async (ip) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(
+      `${API_BASE}/api/blocked/${encodeURIComponent(ip)}`,
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+      }
+    );
+    if (!res.ok) {
+      throw new Error(`Server responded ${res.status}: ${res.statusText}`);
+    }
+
+    // Update local state so the IP disappears and is ignored going forward
+    setBlocked((s) => new Set([...s, ip]));
+    setUsers((m) => {
+      const copy = { ...m };
+      delete copy[ip];
+      return copy;
+    });
+  };
+
+  // Wipe-all button
+  const handleWipeAll = async () => {
+    if (
+      !window.confirm(
+        "⚠️ This will permanently delete ALL data. Are you absolutely sure?"
+      )
+    )
+      return;
+
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/wipe`, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok) {
+        throw new Error(`Server responded ${res.status}: ${res.statusText}`);
+      }
+      // Optionally server could emit `dbWiped`; we hard-clear UI immediately
+      setUsers({});
+      setCardIp(null);
+      setInfoIp(null);
+      setHighlightIp(null);
+      // Keep blocked list intact; you usually want those preserved across wipes
+    } catch (err) {
+      console.error("Wipe failed:", err);
+      alert("Wipe failed: " + err.message);
     }
   };
 
@@ -52,6 +143,9 @@ export default function App() {
         navigate("/login", { replace: true });
         return;
       }
+
+      // Load blocked list before any data comes in
+      await loadBlocked();
 
       // 2) Token is present → connect socket
       socket.connect();
@@ -118,6 +212,7 @@ export default function App() {
 
       // Helper to merge single‐document updates
       const mergeSingleton = (u) => {
+        if (guardMerge(u)) return; // 👈 ignore blocked
         setUsers((m) => {
           const exists = !!m[u.ip];
           playNotification(exists); // call helper
@@ -143,6 +238,8 @@ export default function App() {
 
       // When payments come in, append and mark hasNewData
       const appendPayment = (u) => {
+        if (guardMerge(u)) return; // 👈 ignore blocked
+
         setUsers((m) => {
           const exists = !!m[u.ip];
           playNotification(exists); // call helper
@@ -166,21 +263,33 @@ export default function App() {
         });
       };
 
-      const removeUser = ({ ip }) =>
+      const removeUser = ({ ip }) => {
+        if (guardMerge(u)) return; // 👈 ignore blocked
         setUsers((m) => {
           const copy = { ...m };
           delete copy[ip];
           return copy;
         });
+      };
 
-      const updateFlag = ({ ip, flag }) =>
+      const updateFlag = ({ ip, flag }) => {
+        setUsers((m) => {
+          const copy = { ...m };
+          delete copy[ip];
+          return copy;
+        });
         setUsers((m) => ({
           ...m,
           [ip]: {
-            ...(m[ip] || { payments: [], flag: false, hasNewData: false }),
+            ...(m[ip] || {
+              payments: [],
+              flag: false,
+              hasNewData: false,
+            }),
             flag,
           },
         }));
+      };
 
       socket.on("newIndex", (u) => mergeSingleton(u));
       socket.on("newDetails", (u) => mergeSingleton(u));
@@ -268,6 +377,8 @@ export default function App() {
               infoIp={infoIp}
               setInfoIp={setInfoIp}
               onShowCard={handleShowCard}
+              onBlockIp={handleBlockIp} // 👈 pass down
+              onWipeAll={handleWipeAll} // 👈 pass down
             />
           ) : (
             <Navigate to="/login" replace />
@@ -290,8 +401,6 @@ export default function App() {
   );
 }
 
-//────────────────────────────────────────────────────────────────────────
-// Dashboard UI (no logout button shown anywhere)
 function DashboardView({
   users,
   highlightIp,
@@ -300,12 +409,18 @@ function DashboardView({
   infoIp,
   setInfoIp,
   setCardIp,
+  onBlockIp, // 👈 NEW
+  onWipeAll, // 👈 NEW
 }) {
   return (
     <div className="container py-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>Admin Dashboard</h2>
-        {/* Logout button removed per request */}
+
+        {/* 🔥 Wipe All button */}
+        <button className="btn btn-danger" onClick={onWipeAll}>
+          Wipe All
+        </button>
       </div>
 
       <UserTable
@@ -314,6 +429,7 @@ function DashboardView({
         cardIp={cardIp}
         onShowCard={onShowCard}
         onShowInfo={setInfoIp}
+        onBlockIp={onBlockIp} // 👈 pass into table
       />
 
       {cardIp && (

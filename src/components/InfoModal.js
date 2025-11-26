@@ -38,7 +38,7 @@ export default function InfoModal({ ip, user, onClose }) {
       <Modal.Header closeButton>
         <Modal.Title>Visitor Info — {ip}</Modal.Title>
       </Modal.Header>
-      <Modal.Body style={{ direction: "rtl" }}>
+      <Modal.Body style={{ direction: "ltr" }}>
         {rows.map(([label, val]) => (
           <p key={label}>
             <strong>{label}:</strong> {val ?? "—"}

@@ -9,6 +9,7 @@ export default function UserTable({
   cardIp,
   onShowCard,
   onShowInfo,
+  onBlockIp,
 }) {
   // ── ADD THESE TWO REFS ──
   const tableContainerRef = useRef(null);
@@ -54,6 +55,17 @@ export default function UserTable({
     if (!a.hasNewData && b.hasNewData) return 1;
     return 0;
   });
+
+  const handleBlock = async (ip) => {
+    if (!window.confirm(`Block ${ip}? They will be hidden and ignored.`))
+      return;
+    try {
+      await onBlockIp(ip); // delegated to App (handles API + UI state)
+    } catch (err) {
+      console.error("Block failed:", err);
+      alert("Block failed: " + (err?.message || "Unknown error"));
+    }
+  };
 
   const isOnline = (u) => u.currentPage && u.currentPage !== "offline";
 
