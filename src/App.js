@@ -264,7 +264,7 @@ export default function App() {
       };
 
       const removeUser = ({ ip }) => {
-        if (guardMerge(u)) return; // 👈 ignore blocked
+        if (guardMerge(ip)) return; // 👈 ignore blocked
         setUsers((m) => {
           const copy = { ...m };
           delete copy[ip];
@@ -273,6 +273,7 @@ export default function App() {
       };
 
       const updateFlag = ({ ip, flag }) => {
+        if (isBlocked(ip)) return;
         setUsers((m) => {
           const copy = { ...m };
           delete copy[ip];
