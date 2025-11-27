@@ -109,7 +109,18 @@ export default function UserTable({
             const rowStyle = {
               border: isHighlighted ? "2px solid #28a745" : undefined,
               background: u.flag ? "yellow" : undefined,
+              boxShadow: u.hasPayment ? "inset 4px 0 #28a745" : undefined, // left green bar when paid
             };
+
+            const displayName = u.FullName || "—";
+
+            const nameCellStyle = u.hasPayment
+              ? {
+                  background: "#d4edda", // BS success background
+                  color: "#155724",
+                  fontWeight: 700,
+                }
+              : undefined;
 
             return (
               <tr key={ip} style={rowStyle}>
@@ -123,8 +134,11 @@ export default function UserTable({
                 <td>{i + 1}</td>
                 <td>{ip}</td>
                 <td>{u.IDorResidenceNumber?.trim() || ""}</td>
-                <td>
-                  {u.FullName && u.FullName.trim() !== "" ? u.FullName : ""}
+                <td style={nameCellStyle}>
+                  {displayName}
+                  {u.hasPayment && (
+                    <span className="badge badge-success ml-2">PAID</span>
+                  )}
                 </td>
                 <td>
                   <span
