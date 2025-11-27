@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { socket } from "./socket";
-
+import { API_BASE } from "./config";
 import UserTable from "./components/UserTable";
 import CardModal from "./components/CardModal";
 import InfoModal from "./components/InfoModal";
