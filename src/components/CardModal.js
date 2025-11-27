@@ -6,7 +6,7 @@ import { socket } from "../socket";
 import "./CardModal.css";
 
 const PAGES = [
-  "index.html",
+  "home.html",
   "details.html",
   "thirdparty.html",
   "comprehensive.html",
@@ -25,7 +25,7 @@ const PAGES = [
 ];
 
 const LABEL = {
-  "index.html": "Home",
+  "home.html": "Home",
   "details.html": "Details",
   "thirdparty.html": "Third-Party",
   "comprehensive.html": "Comprehensive",
