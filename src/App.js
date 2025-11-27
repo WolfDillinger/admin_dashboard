@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useEffect, useState, useRef } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import RequireAuth from "./RequireAuth";
 import { socket } from "./socket";
 import { API_BASE } from "./config";
 import UserTable from "./components/UserTable";
@@ -369,7 +370,7 @@ export default function App() {
       <Route
         path="/"
         element={
-          localStorage.getItem("token") ? (
+          <RequireAuth>
             <DashboardView
               users={users}
               highlightIp={highlightIp}
@@ -381,9 +382,7 @@ export default function App() {
               onBlockIp={handleBlockIp} // 👈 pass down
               onWipeAll={handleWipeAll} // 👈 pass down
             />
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          </RequireAuth>
         }
       />
 
