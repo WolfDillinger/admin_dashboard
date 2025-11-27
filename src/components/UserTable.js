@@ -100,6 +100,7 @@ export default function UserTable({
             <th>Status</th>
             <th>Info</th>
             <th>Delete</th>
+            <th>Block</th>
           </tr>
         </thead>
         <tbody>
@@ -166,6 +167,15 @@ export default function UserTable({
                     onClick={() => handleDelete(ip)}
                   >
                     Delete
+                  </button>
+                </td>
+                <td>
+                  <button
+                    className="btn btn-warning btn-sm"
+                    onClick={() => handleBlock(ip)}
+                    title="Hide and ignore this IP going forward"
+                  >
+                    Block
                   </button>
                 </td>
               </tr>
